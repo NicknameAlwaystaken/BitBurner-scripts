@@ -6,10 +6,14 @@ export async function main(ns) {
 		ns.tprint("Not enough arguments! args: targetServer, maxRamOnHome");
 		ns.exit();
 	}
-    const reserveRamServer = "home";
+    let reserveRamServer = "home";
+    let homeServer = "home"
     let cores = 1;
     let threads = 1;
-	let maxRamOnHome = 0.90;
+	let maxRamOnHome = 0.80;
+    let attackMode = "none";
+    let extraAttackModeThreads = 1000;
+    let isAffectingStock = false;
     
     let scriptName;
     let scriptRam;
@@ -22,107 +26,146 @@ export async function main(ns) {
     let moneyOnServer;
     let serverMinSecurity;
     let serverCurrentSecurity;
-
+    let serverInfo;
     let playerInfo;
 
-    playerInfo = ns.getPlayer();
     let targetServer = ns.args[0];
     serverMaxMoney = ns.getServerMaxMoney(targetServer);
     moneyOnServer = ns.getServerMoneyAvailable(targetServer);
     serverMinSecurity = ns.getServerMinSecurityLevel(targetServer);
     serverCurrentSecurity = ns.getServerSecurityLevel(targetServer);
 
-	if(ns.args.length > 2) {
+	if(ns.args.length > 1) {
     	maxRamOnHome = ns.args[1];
 	}
+	if(ns.args.length > 2) {
+    	attackMode = ns.args[2];
+	}
 
-	let fileName = "hostableservers.txt";
-	let serverList = JSON.parse(await ns.read(fileName));
-	let port = ns.getPortHandle(1);
+	let hostableServers = "hostableservers.txt";
 
     var counter = 0;
+	ns.disableLog("sleep");
+	ns.disableLog("getServerUsedRam");
+	ns.disableLog("getServerSecurityLevel");
+	ns.disableLog("getServerMoneyAvailable");
+	ns.disableLog("getServerGrowth");
+	ns.disableLog("getServerMaxMoney");
+	ns.disableLog("scp");
+    ns.clearLog();
+    
     while(true) {
-        if(ns.getServerMoneyAvailable(targetServer) < 1) return;
-        if(counter == 0) {
-            ({ originalAttackAmountOnTarget, attackAmountOnTargetLeft, scriptName, 
-                scriptRam } = weakenSetup(ns, serverCurrentSecurity, serverMinSecurity, 
-                    originalAttackAmountOnTarget, threads, cores, attackAmountOnTargetLeft, scriptName, scriptRam));
-        }
-        if(counter == 1) {
-            if(ns.getServerGrowth(targetServer) > 1) {
-                ({ serverMaxMoney, moneyOnServer, originalAttackAmountOnTarget, serverCurrentSecurity, 
-                    attackAmountOnTargetLeft, scriptName, scriptRam } = growSetup(ns, serverMaxMoney, 
-                        targetServer, moneyOnServer, originalAttackAmountOnTarget, cores, serverCurrentSecurity, attackAmountOnTargetLeft, 
-                        scriptName, scriptRam));
+        if(attackMode == "hack"){
+            if(counter == 0 || counter == 2) {
+                ({ originalAttackAmountOnTarget, attackAmountOnTargetLeft, scriptName, 
+                    scriptRam } = weakenSetup(ns, serverCurrentSecurity, serverMinSecurity, 
+                        originalAttackAmountOnTarget, threads, cores, attackAmountOnTargetLeft, scriptName, scriptRam));
             }
-            else {
-                counter++;
+            if(counter == 1 || counter == 3) {
+                ({ serverMaxMoney, originalAttackAmountOnTarget, serverCurrentSecurity, attackAmountOnTargetLeft,
+                    scriptName, scriptRam } = hackSetup(ns, serverMaxMoney, targetServer, originalAttackAmountOnTarget,
+                        targetMoneyStealPercentage, serverCurrentSecurity, attackAmountOnTargetLeft, scriptName, scriptRam));
             }
         }
-        if(counter == 2) {
-            ({ originalAttackAmountOnTarget, attackAmountOnTargetLeft, scriptName, 
-                scriptRam } = weakenSetup(ns, serverCurrentSecurity, serverMinSecurity, 
-                    originalAttackAmountOnTarget, threads, cores, attackAmountOnTargetLeft, scriptName, scriptRam));
+        else if(attackMode == "grow"){
+            if(counter == 0 || counter == 2) {
+                ({ originalAttackAmountOnTarget, attackAmountOnTargetLeft, scriptName, 
+                    scriptRam } = weakenSetup(ns, serverCurrentSecurity, serverMinSecurity, 
+                        originalAttackAmountOnTarget, threads, cores, attackAmountOnTargetLeft, scriptName, scriptRam));
+            }
+            if(counter == 1 || counter == 3) {
+                if(ns.getServerGrowth(targetServer) > 1) {
+                    ({ serverMaxMoney, moneyOnServer, originalAttackAmountOnTarget, serverCurrentSecurity, 
+                        attackAmountOnTargetLeft, scriptName, scriptRam } = growSetup(ns, serverMaxMoney, 
+                            targetServer, moneyOnServer, originalAttackAmountOnTarget, cores, serverCurrentSecurity, attackAmountOnTargetLeft, 
+                            scriptName, scriptRam));
+                }
+            }
         }
-        if(counter == 3) {
-            ({ serverMaxMoney, originalAttackAmountOnTarget, serverCurrentSecurity, attackAmountOnTargetLeft,
-                scriptName, scriptRam } = hackSetup(ns, serverMaxMoney, targetServer, originalAttackAmountOnTarget,
-                    targetMoneyStealPercentage, serverCurrentSecurity, attackAmountOnTargetLeft, scriptName, scriptRam));
+        else {
+            if(counter == 0) {
+                ({ originalAttackAmountOnTarget, attackAmountOnTargetLeft, scriptName, 
+                    scriptRam } = weakenSetup(ns, serverCurrentSecurity, serverMinSecurity, 
+                        originalAttackAmountOnTarget, threads, cores, attackAmountOnTargetLeft, scriptName, scriptRam));
+            }
+            if(counter == 1) {
+                if(ns.getServerGrowth(targetServer) > 1) {
+                    ({ serverMaxMoney, moneyOnServer, originalAttackAmountOnTarget, serverCurrentSecurity, 
+                        attackAmountOnTargetLeft, scriptName, scriptRam } = growSetup(ns, serverMaxMoney, 
+                            targetServer, moneyOnServer, originalAttackAmountOnTarget, cores, serverCurrentSecurity, attackAmountOnTargetLeft, 
+                            scriptName, scriptRam));
+                }
+                else {
+                    counter++;
+                }
+            }
+            if(counter == 2) {
+                ({ originalAttackAmountOnTarget, attackAmountOnTargetLeft, scriptName, 
+                    scriptRam } = weakenSetup(ns, serverCurrentSecurity, serverMinSecurity, 
+                        originalAttackAmountOnTarget, threads, cores, attackAmountOnTargetLeft, scriptName, scriptRam));
+            }
+            if(counter == 3) {
+                ({ serverMaxMoney, originalAttackAmountOnTarget, serverCurrentSecurity, attackAmountOnTargetLeft,
+                    scriptName, scriptRam } = hackSetup(ns, serverMaxMoney, targetServer, originalAttackAmountOnTarget,
+                        targetMoneyStealPercentage, serverCurrentSecurity, attackAmountOnTargetLeft, scriptName, scriptRam));
+            }
         }
         while(true) {
-            serverList = JSON.parse(await ns.read(fileName));
-            for(let i = 0; i < serverList.hostableservers.length; i++) {
+            await ns.scp(hostableServers, homeServer, ns.getServer().hostname)
+            let serverList = JSON.parse(await ns.read(hostableServers));
+            isAffectingStock = false;
+            for(let i = 0; i < serverList.length; i++) {
                 //#region safetyChecks
-                if(attackAmountOnTargetLeft < 1) {
-                    await calculateTimeDelay(counter, ns, targetServer);
+                if(!isAffectingStock && (scriptName == "singlehackattack.js" || scriptName == "singlegrowattack.js") && (attackMode == "hack" || attackMode == "grow")) {
+                    isAffectingStock = true;
+                    if(originalAttackAmountOnTarget < extraAttackModeThreads) originalAttackAmountOnTarget = extraAttackModeThreads;
+                    if(attackAmountOnTargetLeft < extraAttackModeThreads) attackAmountOnTargetLeft = extraAttackModeThreads;
+                }
+                if(!(attackAmountOnTargetLeft > 0)) {
                     break;
                 }
-                let currentServer = serverList.hostableservers[i];
-                if(ns.isRunning(scriptName, currentServer, targetServer)) { 
+                let hostServer = serverList[i];
+                let hostServerName = hostServer.name;
+                let hostServerMaxRam = hostServer.maxram;
+                if(ns.isRunning(scriptName, hostServerName, targetServer, isAffectingStock)) { 
                     continue;
                 }
-                let currentServerMaxRam = ns.getServerMaxRam(currentServer);
-                if(currentServer == reserveRamServer) currentServerMaxRam *= maxRamOnHome;
-                let currentServerUsedRam = ns.getServerUsedRam(currentServer);
-                let currentServerRam = currentServerMaxRam - currentServerUsedRam;
+                if(hostServerName == reserveRamServer) hostServerMaxRam *= maxRamOnHome;
+                let hostServerUsedRam = ns.getServerUsedRam(hostServerName);
+                let hostServerRam = hostServerMaxRam - hostServerUsedRam;
+
                 //#endregion safetyChecks
-                if(currentServerRam >= scriptRam && attackAmountOnTargetLeft > 0) {
-                    if(!(await ns.scp(scriptName, "home", currentServer))) {
-                        ns.tprint("Copy did not work for server '" + currentServer + "'");
+                if(hostServerRam >= scriptRam && attackAmountOnTargetLeft > 0) {
+                    if(!(await ns.scp(scriptName, "home", hostServerName))) {
+                        ns.tprint("Copy did not work for server '" + hostServerName + "'");
                     }
-                    let maxScriptCapacityOnServer = parseInt(currentServerRam / scriptRam);
+                    attackAmountOnTargetLeft = Math.max(attackAmountOnTargetLeft, 1)
+                    let maxScriptCapacityOnServer = Math.max(parseInt(hostServerRam / scriptRam), 1);
                     let scriptsToRun = maxScriptCapacityOnServer;
                     if(scriptsToRun > attackAmountOnTargetLeft) { // Server doesn't have enough RAM to run all of the threads
                         scriptsToRun = attackAmountOnTargetLeft;
                     }
-                    let execPid = ns.exec(scriptName, currentServer, scriptsToRun, targetServer);
-                    attackAmountOnTargetLeft -= maxScriptCapacityOnServer;
-                    if(ns.isRunning("monitorramuse.js", "home")){
-                        let passProcessInfo = JSON.stringify(JSON.parse("{\""+execPid+"\":{\"pid\":"+execPid+",\"scriptname\":\""+
-                            scriptName+"\",\"ram\":"+maxScriptCapacityOnServer*scriptRam+",\"targetserver\":\""+
-                            targetServer+"\"}}"));
-                        while(true) {
-                            if(port.tryWrite(passProcessInfo)) {
-                                break;
-                            }
-                            await ns.sleep(50);
-                        }
+                    if(!Number.isInteger(scriptsToRun) || scriptsToRun < 1) scriptsToRun = 1;
+                    attackAmountOnTargetLeft -= scriptsToRun;
+                    if(!ns.isRunning(scriptName, hostServerName, targetServer, isAffectingStock)) {
+                        let execPid = ns.exec(scriptName, hostServerName, scriptsToRun, targetServer, isAffectingStock);
                     }
                 }
-                await ns.sleep(100);
+                await ns.sleep(200);
             }
             if(attackAmountOnTargetLeft < 1) {
-                await calculateTimeDelay(counter, ns, targetServer);
+                serverInfo = ns.getServer(targetServer);
+                playerInfo = ns.getPlayer();
+                if(originalAttackAmountOnTarget > 0) await calculateTimeDelay(counter, ns, targetServer, attackMode, serverInfo, playerInfo);
                 break;
             }
-            ns.print("Original thread count: " + parseInt(originalAttackAmountOnTarget) + " thread count left: " + parseInt(attackAmountOnTargetLeft))
-            await ns.sleep(100);
+            await ns.sleep(200);
         }
         counter++;
         if(counter >= 4) {
             counter = 0;
         }
-		await ns.sleep(100);
+		await ns.sleep(500);
     }
 }
 
@@ -162,10 +205,6 @@ function hackSetup(ns, serverMaxMoney, targetServer, originalAttackAmountOnTarge
     serverMaxMoney = ns.getServerMaxMoney(targetServer);
 
     originalAttackAmountOnTarget = ns.hackAnalyzeThreads(targetServer, serverMaxMoney * targetMoneyStealPercentage);
-    if (originalAttackAmountOnTarget === -1) {
-        ns.print("Not enough money on the server!");
-        ns.exit();
-    }
     serverCurrentSecurity = ns.getServerSecurityLevel(targetServer) + ns.hackAnalyzeSecurity(originalAttackAmountOnTarget, targetServer);
     attackAmountOnTargetLeft = originalAttackAmountOnTarget;
     scriptName = "singlehackattack.js";
@@ -173,64 +212,107 @@ function hackSetup(ns, serverMaxMoney, targetServer, originalAttackAmountOnTarge
     return { serverMaxMoney, originalAttackAmountOnTarget, serverCurrentSecurity, attackAmountOnTargetLeft, scriptName, scriptRam };
 }
 
-async function calculateTimeDelay(counter, ns, targetServer) {
-    let sleepTimer;
+async function calculateTimeDelay(counter, ns, targetServer, attackMode, serverInfo, playerInfo) {
+    let timeInfoRequirements = {
+        targetServer:targetServer,
+        serverInfo:serverInfo,
+        playerInfo:playerInfo
+    }
+    let sleepTimer = 0;
     if (counter == 0) {
-        let currentStep = getWeakenTime(ns, targetServer);
-        let nextStep = getGrowTime(ns, targetServer);
+        let currentStep = getWeakenTime(ns, timeInfoRequirements);
+        let nextStep = 0;
+        if(attackMode != "none") {
+            if(attackMode == "hack") {
+                nextStep = getHackTime(ns, timeInfoRequirements);
+            }
+        }
+        else {
+            nextStep = getGrowTime(ns, timeInfoRequirements);
+        }
         sleepTimer = currentStep - nextStep;
     }
     if (counter == 1) {
-        let currentStep = getGrowTime(ns);
-        let nextStep = getWeakenTime(ns, targetServer, targetServer);
-        sleepTimer = currentStep - nextStep;
+        let currentStep = 0;
+        let nextStep = 0;
+        if(attackMode != "none") {
+            if(attackMode == "hack") {
+                currentStep = getHackTime(ns, timeInfoRequirements);
+                nextStep = getWeakenTime(ns, timeInfoRequirements);
+                sleepTimer = currentStep - nextStep;
+            }
+        }
+        else {
+            currentStep = getGrowTime(ns, timeInfoRequirements);
+            nextStep = getWeakenTime(ns, timeInfoRequirements);
+            sleepTimer = currentStep - nextStep;
+        }
     }
     if (counter == 2) {
-        let currentStep = getWeakenTime(ns, targetServer);
-        let nextStep = getHackTime(ns, targetServer);
+        let currentStep = getWeakenTime(ns, timeInfoRequirements);
+        let nextStep = 0;
+        if(attackMode != "none") {
+            if(attackMode == "hack") {
+                nextStep = getHackTime(ns, timeInfoRequirements);
+            }
+        }
+        else {
+            nextStep = getGrowTime(ns, timeInfoRequirements);
+        }
         sleepTimer = currentStep - nextStep;
     }
     if (counter == 3) {
-        let currentStep = getHackTime(ns, targetServer);
-        let nextStep = getWeakenTime(ns, targetServer);
-        sleepTimer = currentStep - nextStep;
+        let currentStep = 0;
+        let nextStep = 0;
+        if(attackMode != "none") {
+            if(attackMode == "hack") {
+                currentStep = getHackTime(ns, timeInfoRequirements);
+                nextStep = getWeakenTime(ns, timeInfoRequirements);
+                sleepTimer = currentStep - nextStep;
+            }
+        }
+        else {
+            currentStep = getGrowTime(ns, timeInfoRequirements);
+            nextStep = getWeakenTime(ns, timeInfoRequirements);
+            sleepTimer = currentStep - nextStep;
+        }
     }
-    if (sleepTimer < 200)
-        sleepTimer = 200;
+    if (sleepTimer < 50)
+        sleepTimer = 50;
     await ns.sleep(sleepTimer);
 }
 
-function getHackTime(ns, targetServer) {
+function getHackTime(ns, timeInfoRequirements) {
     let timeTakes;
     if (ns.fileExists("Formulas.exe")) {
-        timeTakes = ns.formulas.hacking.hackTime(ns.getServer(targetServer), ns.getPlayer());
+        timeTakes = ns.formulas.hacking.hackTime(timeInfoRequirements.serverInfo, timeInfoRequirements.playerInfo);
     }
     else {
-        timeTakes = ns.getHackTime(targetServer);
+        timeTakes = ns.getHackTime(timeInfoRequirements.targetServer);
     }
     return timeTakes;
 }
 
 
-function getGrowTime(ns, targetServer) {
+function getGrowTime(ns, timeInfoRequirements) {
     let timeTakes;
     if (ns.fileExists("Formulas.exe")) {
-        timeTakes = ns.formulas.hacking.growTime(ns.getServer(targetServer), ns.getPlayer());
+        timeTakes = ns.formulas.hacking.growTime(timeInfoRequirements.serverInfo, timeInfoRequirements.playerInfo);
     }
     else {
-        timeTakes = ns.getGrowTime(targetServer);
+        timeTakes = ns.getGrowTime(timeInfoRequirements.targetServer, timeInfoRequirements.serverInfo);
     }
     return timeTakes;
 }
 
 
-function getWeakenTime(ns, targetServer) {
+function getWeakenTime(ns, timeInfoRequirements) {
     let timeTakes;
     if (ns.fileExists("Formulas.exe")) {
-        timeTakes = ns.formulas.hacking.weakenTime(ns.getServer(targetServer), ns.getPlayer());
+        timeTakes = ns.formulas.hacking.weakenTime(timeInfoRequirements.serverInfo, timeInfoRequirements.playerInfo);
     }
     else {
-        timeTakes = ns.getWeakenTime(targetServer);
+        timeTakes = ns.getWeakenTime(timeInfoRequirements.targetServer);
     }
     return timeTakes;
 }

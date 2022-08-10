@@ -1,5 +1,6 @@
 /** @param {NS} ns */
 export async function main(ns) {
     var target = ns.args[0];
-	await ns.grow(target);
+    var affectStock = ns.args[1];
+	await ns.grow(target, {stock: affectStock});
 }
